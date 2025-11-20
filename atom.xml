@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://www.57f.org</id>
+    <title>Xuwuyibing&apos;s Blog</title>
+    <updated>2025-11-20T11:48:37.294Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://www.57f.org"/>
+    <link rel="self" href="https://www.57f.org/atom.xml"/>
+    <subtitle>逝者如斯夫，不舍昼夜。</subtitle>
+    <logo>https://www.57f.org/images/avatar.png</logo>
+    <icon>https://www.57f.org/favicon.ico</icon>
+    <rights>All rights reserved 2025, Xuwuyibing&apos;s Blog</rights>
+    <entry>
+        <title type="html"><![CDATA[今日互联网"灵异"事件，以及256M vps上的vaultwarden优化记录]]></title>
+        <id>https://www.57f.org/vaultwarden_logs/</id>
+        <link href="https://www.57f.org/vaultwarden_logs/">
+        </link>
+        <updated>2025-11-20T05:44:33.000Z</updated>
+        <content type="html"><![CDATA[<p>记一篇近日神秘&quot;灵异&quot;事件。<br>
+最近因为发现微软砍掉了microsoft authenticator的密码管理功能，以及从安卓迁移到ios后，这玩意居然不能自动备份2fa，深感大公司也是很不靠谱的，因此在一台弱鸡小服务器上搭了一个vaultwarden。因为cpu太弱了，自然而然地选择了将TLS交给cloudflare处理。<br>
+vaultwarden确实是优化很好的软件，使用deb包安装的版本占用内存不过10-20MB，256M的小服务器也能跑动，但是半夜的时候服务商突然提示我的CPU占用超过了TOS，给我关机了，这就令人百思不得其解。根据chatgpt的建议，我对debian的service服务插入了如下限制：</p>
+<pre><code class="language-bash">sudo systemctl edit vaultwarden.service
+</code></pre>
+<p>填入了这样的限制内容：</p>
+<pre><code>[Service]
+# CPU 限制：Vaultwarden 最多占用 30%
+CPUQuota=30%
+
+# 降低线程数量，适合 1 核 VPS
+Environment=&quot;ROCKET_WORKERS=1&quot;
+Environment=&quot;WEBSOCKET_WORKERS=1&quot;
+
+# 限制 SQLite 数据库连接数
+Environment=&quot;DATABASE_MAX_CONNS=2&quot;
+
+# 可选：如果你不使用 Web 界面，关闭以减少 CPU
+# Environment=&quot;WEB_VAULT_ENABLED=false&quot;
+</code></pre>
+<p>但是在次日夜间，我依然观察到我的cpu占用爆满：<br>
+<img src="https://www.57f.org/post-images/1763618656504.webp" alt="" loading="lazy"><br>
+考虑到后端的CPU占用率已经被软件限制了，于是我关闭了前端服务，并且通过http也看到了vaultwarden-web服务不再提供前端界面。<br>
+但是此时灵异事件发生了，虽然我关了前端，但是cloudflare还有缓存，所以我打开网站还是能看到缓存的前端，甚至还能配合服务器上的/api后端正常工作。原来是cloudflare半夜自动化抓前端缓存抓爆了弱鸡CPU，现在前端界面已经被完全被缓存，是由CDN缓存提供给我的。<br>
+不过考虑到CPU占用再也没有超过70%，现在服务也可以以一种诡异的状态正常运行了...</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[使用Hosts解锁New Bing]]></title>
+        <id>https://www.57f.org/New_Bing_Hosts/</id>
+        <link href="https://www.57f.org/New_Bing_Hosts/">
+        </link>
+        <updated>2024-01-05T03:05:09.000Z</updated>
+        <content type="html"><![CDATA[<p>最近非常依赖于New Bing查找需要的资料，但是New Bing并不能随时随地拿来用，而且之前我讲改XFF的路子发到v2ex以后，那个法子很快就被一些无良人士搬到bilibili，营销-传播-滥用-被封，一条龙服务。最近又找了一些直连New Bing的方法，希望读者自己用就行，减少传播。</p>
+<p>其实这个方法也不稀奇，就是找一个SNI Reverse Proxy，随后将New Bing所需的域名通过hosts重定向过去就行了，本质上还是依赖于代理。</p>
+<p>具体的使用方法如下：</p>
+<ol>
+<li>
+<p>首先，找到记事本，右键，以管理员身份打开：<br>
+<img src="https://www.57f.org/post-images/1704424339070.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>在记事本左上角选择“文件”-“打开”。<br>
+（1）随后在目录栏填入：C:\Windows\System32\drivers\etc<br>
+（2）右下角选择所有文件<br>
+（3）双击hosts<br>
+<img src="https://www.57f.org/post-images/1704424355320.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>在hosts文件中另起一行，粘贴以下内容：</p>
+</li>
+</ol>
+<pre><code class="language-cpp">#new_bing
+172.233.67.49 www.bing.com
+172.233.67.49 bing.com
+172.233.67.49 www4.bing.com
+172.233.67.49 r.bing.com
+172.233.67.49 ssl.bing.com
+172.233.67.49 sydney.bing.com
+172.233.67.49 copilot.microsoft.com
+172.233.67.49 edgeservices.bing.com
+172.233.67.49 services.bingapis.com
+172.233.67.49 www.bingapis.com
+#block_edge_tracking
+10.0.0.1 browser.events.data.msn.com
+</code></pre>
+<p>或者，如果你有稳定可用的ipv6的话，也可以选择ipv6 hosts，这个路子不是扫描而来，而是利用了NAT64服务，会稳定很多。</p>
+<pre><code class="language-python">#new bing
+2a01:4f8:c2c:123f:64:5:b856:fb13 www.bing.com
+2a01:4f8:c2c:123f:64:5:cc4f:c5c8 bing.com
+2a01:4f8:c2c:123f:64:5:b856:fb13 www4.bing.com
+2a01:4f8:c2c:123f:64:5:b856:fb13 www-www.bing.com.trafficmanager.net
+2a01:4f8:c2c:123f:64:5:b856:fb13 www.bing.com.edgekey.net
+2a01:4f8:c2c:123f:64:5:b856:fb13 r.bing.com
+2a01:4f8:c2c:123f:64:5:0d6b:15c8 ssl.bing.com
+2a01:4f8:c2c:123f:64:5:cc4f:c5ed sydney.bing.com
+2a01:4f8:c2c:123f:64:5:cc4f:c5ed copilot.microsoft.com
+2a01:4f8:c2c:123f:64:5:b856:fb13 edgeservices.bing.com
+2a00:1098:2b::1:d6b:550 services.bingapis.com
+2a00:1098:2b::1:d6b:550 www.bingapis.com
+#block_edge_tracking
+10.0.0.1 browser.events.data.msn.com
+</code></pre>
+<p>保存退出，重启电脑或刷新DNS即可食用。<br>
+Bing AI链接是https://www.bing.com/?mkt=zh-hk<br>
+进去以后点聊天就行了。Enjoy it.</p>
+<p><strong>One More Thing:</strong> 实际上，不幸的是，172.233.67.49这个IP是我扫描到的一个美国IP，速度只能说勉强可用，为了减少被玩坏的概率，我不敢把更多扫描到的IP发出来，但是在这里可以提供一些教程。</p>
+<p>首先，打开<a href="https://fofa.info/result?qbase64=Ym9keT0iQmFja2VuZCBub3QgYXZhaWxhYmxlIg%3D%3D">fofa</a>，在这里面，你可以看到扫描出来了很多IP，过去这些大部分都能用，现在大部分都不能用了，所以还要手动扫描，我的建议是使用curl命令：</p>
+<pre><code class="language-bash">curl &quot;https://www.bing.com/&quot; --resolve www.bing.com:443:【填入扫描到的IP】
+</code></pre>
+<p>例如：</p>
+<pre><code class="language-bash">curl &quot;https://www.bing.com/&quot; --resolve www.bing.com:443:172.233.67.49
+</code></pre>
+<p>当IP正确的时候，会返回如图的数百行html代码，有可能会比较卡，而当返回值只有几行错误的时候，IP是不可用的。<br>
+<img src="https://www.57f.org/post-images/1704426665495.png" alt="" loading="lazy"><br>
+上图意味着172.233.67.49是可用的sni proxy</p>
+<p>而这是出现错误的情况：</p>
+<pre><code class="language-bash">user&gt;&gt;curl &quot;https://www.bing.com/&quot; --resolve www.bing.com:443:210.61.201.55
+curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_ILLEGAL_MESSAGE (0x80090326) - This error usually occurs when a fatal SSL/TLS alert is received (e.g. handshake failed). More detail may be available in the Windows System event log.
+</code></pre>
+<p>参考：<a href="https://bulianglin.com/archives/netflix4.html">不良林的博客</a></p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[配置FastGithub开机启动]]></title>
+        <id>https://www.57f.org/fastgithub/</id>
+        <link href="https://www.57f.org/fastgithub/">
+        </link>
+        <updated>2023-10-29T08:07:51.000Z</updated>
+        <content type="html"><![CDATA[<p>最近在上网冲浪的时候发现了FastGithub这个域前置神器，json格式的配置十分简明，自带的dns拦截模式也很好用，和常用的网络加速工具也不冲突，唯一美中不足的就是其dns查询只支持tcp dns。既然这个软件还挺好用的，也支持作为windows服务存在，我就决定写一个小教程，方便配置FastGithub开机启动。</p>
+<p>软件下载URL：<a href="https://r2.57f.org/fastgithub_win-x64.zip">Release Mirror</a></p>
+<p><em><strong>观前提醒</strong></em><br>
+<em>很多网站的加速服务都是依赖于ipv6的，请你在使用的时候确定自己拥有ipv6：<a href="https://ip.zxinc.org/ipquery/">ipv6测试链接</a>，否则只有一小部分加速会生效。</em></p>
+<p>以下为正式的教程</p>
+<ol>
+<li>
+<p>右键windows的此电脑，选择管理。随后在左侧侧边栏中选择任务计划程序-任务计划程序库。右键任务计划程序库，选择创建任务。<br>
+<img src="https://www.57f.org/post-images/1698569385709.png" alt="" loading="lazy"><br>
+<img src="https://www.57f.org/post-images/1698569396615.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>选择创建任务之后，常规，条件和设置这三栏可以抄作业，这些选项基本就是字面意思。<br>
+<img src="https://www.57f.org/post-images/1698569664278.png" alt="" loading="lazy"><br>
+<img src="https://www.57f.org/post-images/1698569706250.png" alt="" loading="lazy"><br>
+<img src="https://www.57f.org/post-images/1698569730461.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>触发器 一栏，请选择新建-开始任务-选择“启动时”，即可。</p>
+</li>
+<li>
+<p>操作 一栏，还是新建，操作选择“启动程序”。程序或脚本这里，请点击浏览，找到你放置fastgithub的目录，选择这个结尾不带&quot;UI&quot;的exe文件。<br>
+<img src="https://www.57f.org/post-images/1698571080285.png" alt="" loading="lazy"></p>
+</li>
+</ol>
+<p>随后选定好程序以后，添加参数一栏填入&quot;start&quot;即可，随后一路确定，保存退出。最后结束的时候应该会 要求你填入当前windows账户的密码（而不是开机pin码），正常填入确定即可。<br>
+<img src="https://www.57f.org/post-images/1698570094454.png" alt="" loading="lazy"></p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[在中国大陆利用modheader插件，预约bing版chatgpt（已失效）]]></title>
+        <id>https://www.57f.org/bing_and_chatgpt/</id>
+        <link href="https://www.57f.org/bing_and_chatgpt/">
+        </link>
+        <updated>2023-02-08T05:10:41.000Z</updated>
+        <content type="html"><![CDATA[<p>2023.06 update:<br>
+感谢各位b站up的滥用和随意传播，现在已经完全失效了。</p>
+<h3 id="引言">引言</h3>
+<p>我这两天是输麻了，前两天刚刚花费一块五重金，注册了一个chatGPT账号，让他帮我做ppt，结果他给我的资料全是有错误的。正感慨一块五花的不值的时候，现实又给了我一击，微软定制版chatGPT环中国大陆公测啦！</p>
+<p>不过虽然是环大陆公测，还是有方法可以在中国大陆预约这个“新必应”的，顺便还能解锁bing国际版。</p>
+<p>刚好有很多人最近问我，如何注册chatGPT，我就想着写下这么个教程，让大家去预约免费且免国际上网环境的bing版。</p>
+<h3 id="1-使用插件modheader修改xff">1. 使用插件modheader修改xff</h3>
+<p>浏览器插件可以在firefox或者edge应用商店安装，chrome用户安装插件就只能老老实实翻墙了，这里不教怎么翻墙。</p>
+<p>安装完成以后呢，打开这个插件，插件的右上角应该有个➕，点开以后，选择request header，填入和我这里相同的数值，ip的最后一位请自己在0-255中间随便换一个，以免重复。</p>
+<figure data-type="image" tabindex="1"><img src="https://www.57f.org/post-images/1675949157083.png" alt="" loading="lazy"></figure>
+<p>这个插件的作用是伪装ip，实际上这里你随便填一个非中国大陆ip就可以了。</p>
+<p>这时你可以打开<a href="https://www.whatismyip.com.tw/" title="ip地址检测">ip地址检测</a>这个网站，如果这个网站很愚蠢的说你填入的这个ip才是真实ip，那说明你成功了（逃）。</p>
+<figure data-type="image" tabindex="2"><img src="https://www.57f.org/post-images/1675949719811.png" alt="" loading="lazy"></figure>
+<h3 id="2修改bing区域">2.修改bing区域</h3>
+<p>当然啦，要预约bing首先要有个微软服务，在Bing那里登录微软账户以后，就能看到设置里看到国家和地区的选项，我建议你选香港，似乎有人反馈说+86手机号注册的微软账户要改香港区才行。</p>
+<figure data-type="image" tabindex="3"><img src="https://www.57f.org/post-images/1675949864891.png" alt="" loading="lazy"></figure>
+<p>然后你就可以打开<a href="https://www.bing.com/new" title="新bing预约入口">新bing预约入口</a>了，祝你成功。<br>
+<img src="https://www.57f.org/post-images/1675949954481.png" alt="" loading="lazy"></p>
+<p>------------------------------3.29更新------------------------------<br>
+感谢各位的疯狂滥用，这个方法目前已经失效了，如果按照第一步的方法安装插件，只会让bing陷入无限重定向中。<br>
+目前已经通过new bing审核的用户，打上插件以后依然可以通过web.skype.com和skype的新bing机器人交谈，但是不保证什么时候会被封锁。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[利用cloudflare workers建立Google镜像，2023年可用]]></title>
+        <id>https://www.57f.org/googlemirror/</id>
+        <link href="https://www.57f.org/googlemirror/">
+        </link>
+        <updated>2022-05-16T08:55:41.000Z</updated>
+        <content type="html"><![CDATA[<!-- more -->
+<p>2023.08 update:<br>
+由于cloudflare的回源被谷歌封禁，使用该种方法已经不能建立谷歌学术镜像。</p>
+<h4 id="说明">说明</h4>
+<p>Due to Google had ban the ipv4 address of cloudflare, so i use ipv6.google.com as back-to-source hostname for google search, but ipv6.google.com doesn't support image search, so when using image search, it will jump back to www.google.com automatically.</p>
+<p>由于谷歌搜索屏蔽了 cloudflare 回源的ipv4地址，因此在这里我使用ipv6.google.com作为回源主机名，但是ipv6.google.com不支持图片搜索，又做了一些额外的修改以在使用图片搜索的时候跳转回www.google.com。</p>
+<h4 id="how-to-use详细使用方法">How to use/详细使用方法：</h4>
+<ol>
+<li>准备工作：<br>
+注册一个cloudflare账号，网址是 https://cloudflare.com</li>
+</ol>
+<p>获得一个域名，并加入你的cloudflare账号，如果不想花钱的话，可以使用freenom的域名，免费12个月，需要每年手动续期。</p>
+<p>参考：https://blog.csdn.net/qq_37699336/article/details/120029421</p>
+<p>注：freenom的域名申请歧视中国IP，可以考虑在<a href="https://hyperbeam.com" title="hyperbeam">hyperbeam</a>的云浏览器中申请，成功率会高很多。</p>
+<ol start="2">
+<li>建立一个workers，打开这个workers，在快速编辑中粘贴我的GitHub项目中<a href="https://github.com/RaySibay/workers_proxy_for_Google/blob/main/google.js" title="google.js">google.js</a>中的代码，随后保存并退出即可。</li>
+</ol>
+<p>我的项目：<br>
+https://github.com/RaySibay/workers_proxy_for_Google<br>
+<img src="https://www.57f.org/post-images/1675948067674.png" alt="" loading="lazy"><br>
+<img src="https://www.57f.org/post-images/1675948073220.png" alt="" loading="lazy"><br>
+在这个时候workers镜像其实已经架设完毕了，但是只有cloudflare默认分配的域名，就是**.**.workers.dev，这个域名是被屏蔽了的，因此还需要下一步操作，换绑域名。</p>
+<ol>
+<li>将workers绑定到你第一步获取的域名上<br>
+参考：https://www.idcfq.com/297.html</li>
+</ol>
+<p>完成绑定之后，你就可以通过你的域名，而不是cloudflare分配的域名来访问了，之前建立的&quot;google.****.workers.dev&quot;就可以换成，&quot;google.你的域名.ml&quot;了</p>
+<ol start="4">
+<li>现在你已经成功建立了谷歌搜索的镜像，如果你需要更进一步，稳定的使用谷歌学术，那么可以强制谷歌搜索使用学术搜索。</li>
+</ol>
+<p>换言之，假设原来你打开搜索镜像的url是&quot;https://google.你的域名.ml&quot; ，现在你通过浏览器打开&quot;https://google.你的域名.ml/schhp?hl=zh-CN&quot; 就是谷歌学术了。当然这一步也是可以通过workers跳转实现，比如我就又重复了第2，3步中的步骤，建立了一个&quot;scholar.你的域名.ml&quot;，它对应的workers代码非常简单，就是个普普通通的跳转而已。</p>
+<pre><code class="language-javascript">async function handleRequest(request) {
+    
+  let requestURL = new URL(request.url)
+  let redirectAim = 'https://{填入你镜像的域名}/schhp?hl=zh-CN'
+  return Response.redirect(redirectAim, 301)
+}
+addEventListener('fetch', async event =&gt; {
+    
+  event.respondWith(handleRequest(event.request))
+})
+</code></pre>
+<ol start="5">
+<li>Now enjoy it.</li>
+</ol>
+<p>PS:<br>
+2023年更新：因为cloudflare现在有点被限速了，外加谷歌有一个强制重定向以搜集信息的js脚本，现在使用这个方法生成的网站有可能打不开搜索结果。不过可以通过在adblock plus加一个规则实现屏蔽谷歌的重定向脚本，这样就能打开了。<br>
+首先在edge拓展商店或者chrome商店下载adblock plus，随后打开它的拓展选项，设置-高级-我的过滤列表，在其中添加规则：</p>
+<pre><code>||你的域名$script
+</code></pre>
+<p>Reference：</p>
+<ol>
+<li>https://github.com/klightso/Workers-Proxy-1</li>
+<li>https://github.com/xiaoyang-sde/reflare</li>
+</ol>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Part3: DAC的接线与程序控制]]></title>
+        <id>https://www.57f.org/part3/</id>
+        <link href="https://www.57f.org/part3/">
+        </link>
+        <updated>2022-03-03T12:34:25.000Z</updated>
+        <content type="html"><![CDATA[<p>中 / <a href="http://xuwuyibing.byethost16.com/sliver/131/" title="EN">EN</a></p>
+<figure data-type="image" tabindex="1"><img src="https://www.57f.org/post-images/1675946128084.png" alt="" loading="lazy"></figure>
+<center>接线图</center>
+<h3 id="1-原理">1. 原理</h3>
+<p>性能：</p>
+<ul>
+<li>16bit原生精度</li>
+<li>16通道输出</li>
+<li>电压信号输出率达到500k</li>
+</ul>
+<p>其在shell中的调用方式形如：</p>
+<pre><code class="language-shell">python voltcontroller.py -c channel -v voltage
+</code></pre>
+<p>其中channel和voltage就是输出的通道和电压。</p>
+<h3 id="2-arduino程序">2. Arduino程序</h3>
+<p>ad5360的arduino程序信息详见<a href="https://gitee.com/xjtu_xqo">gitee私有仓库</a>。</p>
+<h3 id="3-python程序">3. python程序</h3>
+<pre><code class="language-python">voltcontroller = serial.Serial(port=&quot;COM4&quot;, baudrate=1000000, timeout=0.1)
+#when using our devices, please take care of the port
+
+def write_ChDacTo3Bytes (channel:int,voltage:float):
+    ChDac = channel*65536 + voltage*32767 / 10 + 32768
+    voltcontroller.write(int(ChDac).to_bytes(3,'big'))
+#this function is used to tell ardunio, the channel we supposed to use and the voltage we need
+
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Part2: 程控电压表(ADC)的原理与程序控制]]></title>
+        <id>https://www.57f.org/part2/</id>
+        <link href="https://www.57f.org/part2/">
+        </link>
+        <updated>2022-03-02T10:55:46.000Z</updated>
+        <content type="html"><![CDATA[<p>中 / <a href="http://xuwuyibing.byethost16.com/sliver/120/" title="EN">EN</a></p>
+<h3 id="1-接线图">1. 接线图</h3>
+<figure data-type="image" tabindex="1"><img src="https://www.57f.org/post-images/1675940445609.png" alt="" loading="lazy"></figure>
+<p>ad7608的接线图，与目前使用的ad7606c16只有部分针脚不同，具体差异可以在下面的程序中的阵脚定义处自行对比。</p>
+<p>性能水平：</p>
+<ul>
+<li>18bit原生精度</li>
+<li>8通道采样，支持差分采样</li>
+<li>256次原生超采样率</li>
+<li>电压信号采集率达到200k</li>
+</ul>
+<p>针对ad7606c18的程序应该以如下方式在shell中调用：</p>
+<pre><code class="language-shell">python voltmeter.py -n 64
+</code></pre>
+<p>其中-n所允许添加的参数是64，代表一次最多可以连续采样64组，n的默认值是1。</p>
+<h3 id="2-原理">2. 原理</h3>
+<h4 id="21-超采样oversampling">2.1 超采样(Oversampling)</h4>
+<p>超采样是指以远远高于信号最高频率两倍对其进行采样的过程。与之相对的还有欠采样。</p>
+<p>超采样获得N位额外数据精度所需的样本数为:</p>
+<pre><code>sample times = 4^N
+</code></pre>
+<ul>
+<li>我们开启了AD7606C18内置的软件模式, 将过采样率提高到256次, 此时可以提高4-bit精度。</li>
+<li>在循环缓存中我们也配置了64倍的过采样, 可以获得的额外的3bit理论精度, 因此理论精确位数可到±10V/2^25，达到了μV级。</li>
+</ul>
+<h4 id="22-循环缓存">2.2 循环缓存</h4>
+<p><img src="https://www.57f.org/post-images/1675935447788.svg" alt="" loading="lazy"><br>
+循环缓存可以提高请求数据时的反应速率，并且也起到软件上的“超采样”的作用，尤其是当ADC的超采样率被设置得很高时</p>
+<p><em>注：循环缓存中的数据遵循FIFO的原则，即先进先出，优先读出新数据，溢出旧数据</em></p>
+<h3 id="3-arduino程序">3. Arduino程序</h3>
+<p>ad7606c18的arduino程序信息详见<a href="https://gitee.com/xjtu_xqo">gitee私有仓库</a>。</p>
+<h3 id="4-python程序">4. Python程序</h3>
+<pre><code class="language-python">voltmeter = serial.Serial(port=&quot;COM6&quot;, baudrate=1000000, timeout=0.5) #with CH340G
+#when using our devices, please take care of the port
+
+def writeByteCommand2arduino (sample_times:int):
+    voltmeter.write(sample_times.to_bytes(1,'big'))
+#this function is used to tell ardunio, how many group of the data we need
+</code></pre>
+<p>注：请注意port端口的变化，在使用linux时这个端口会有固定的文件名，但是在使用Windows时会跟随端口的不同发生变化。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[总述：Python脚本控制的实验室系统]]></title>
+        <id>https://www.57f.org/part1/</id>
+        <link href="https://www.57f.org/part1/">
+        </link>
+        <updated>2022-03-01T09:28:54.000Z</updated>
+        <content type="html"><![CDATA[<h3 id="1-背景知识介绍">1. 背景知识介绍</h3>
+<p><strong>FPGA, MCU, DSP的对比</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left"></th>
+<th style="text-align:center">MCU</th>
+<th style="text-align:center">FPGA</th>
+<th style="text-align:center">DSP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">通用计算能力</td>
+<td style="text-align:center">较强</td>
+<td style="text-align:center">较弱</td>
+<td style="text-align:center">无</td>
+</tr>
+<tr>
+<td style="text-align:left">指令延迟</td>
+<td style="text-align:center">快于CPU</td>
+<td style="text-align:center">快</td>
+<td style="text-align:center">最快</td>
+</tr>
+<tr>
+<td style="text-align:left">备注</td>
+<td style="text-align:center"></td>
+<td style="text-align:center"></td>
+<td style="text-align:center">不可编程</td>
+</tr>
+</tbody>
+</table>
+<p>MCU的本质是一个精简的CPU，相比CPU降低了性能但是也降低了延迟。</p>
+<p>FPGA是一个可编程的门阵列，理论上可以软件模拟出任意我们需要的芯片。在我们使用FPGA的时候，相当于把FPGA模拟成了我们需要的DSP。</p>
+<p>DSP是专用、定制的数字信号处理芯片。</p>
+<p><strong>为什么需要MCU，他们起什么作用</strong></p>
+<ol>
+<li>ADC和DAC的控制需要SPI协议通信，以及多组GPIO (通用输入输出控制器) ，电脑控制SPI的速率可以很快，但是电脑不具备快速输出自定义的GPIO的能力。</li>
+<li>在利用ADC采集数据时，MCU可以设计为循环采集数据并缓存的工作模式，此时在请求数据，尤其是多组数据时可以极大地降低延迟。</li>
+</ol>
+<figure data-type="image" tabindex="1"><img src="https://www.57f.org/post-images/1675935447788.svg" alt="" loading="lazy"></figure>
+<h3 id="2-控制系统的结构">2. 控制系统的结构</h3>
+<figure data-type="image" tabindex="2"><img src="https://www.57f.org/post-images/1675935382333.svg" alt="" loading="lazy"></figure>
+<p><strong>其中涉及了两种异步通信方式，SPI和Serial串口</strong></p>
+<ul>
+<li>Serial是一种较为简易的异步通讯方式，TX (输出) 和RX (接收) 只需要通过预先设定好的波特率进行通信即可。</li>
+</ul>
+<figure data-type="image" tabindex="3"><img src="https://www.57f.org/post-images/1675935463659.png" alt="" loading="lazy"></figure>
+<ul>
+<li>SPI相对复杂，SCLK用于控制数据流的速率，CS用于选中芯片，MOSI/MISO的作用与TX/RX相同。</li>
+</ul>
+<figure data-type="image" tabindex="4"><img src="https://www.57f.org/post-images/1675935478983.png" alt="" loading="lazy"></figure>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[自用新闻源]]></title>
+        <id>https://www.57f.org/mynewsfeed/</id>
+        <link href="https://www.57f.org/mynewsfeed/">
+        </link>
+        <updated>2021-10-14T06:33:07.000Z</updated>
+        <content type="html"><![CDATA[<p>为了对抗信息污染，我整理了一些自用的新闻源。</p>
+<h3 id="来自feedx">来自<a href="https://feedx.best" title="feedx">feedx</a></h3>
+<p>中文新闻：</p>
+<ul>
+<li><a href="https://feedx.best/read?r=investing" title="英为财经">英为财经</a></li>
+<li><a href="https://feedx.best/read?r=aljazeera" title="半岛电视台">半岛电视台</a>：阿拉伯地区有名的新闻台。</li>
+<li><a href="https://feedx.best/read?r=nhk" title="NHK国际">NHK国际</a></li>
+</ul>
+<p>英文新闻：</p>
+<ul>
+<li><a href="https://feedx.best/read?r=reutersen" title="Reuters">Reuters-路透社</a>：央视天天“据路透社报道”的路透社。</li>
+<li><a href="https://feedx.best/read?r=economist" title="The Economist">The Economist-经济学人</a></li>
+<li><a href="https://feedx.best/read?r=economistp" title="The Economist Print">经济学人纸质版</a></li>
+</ul>
+<h3 id="来自本站自制镜像源">来自本站自制镜像源</h3>
+<p>刊物：</p>
+<ul>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/theinitium_rss" title="Initium">端传媒</a>：港媒，似乎是前南周的人做的，调查国内的新闻水平很不错。</li>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/ftzhongwen_rss" title="ft">金融时报中文网</a></li>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/wsj" title="wsj">华尔街日报</a></li>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/niuyueshibao_rss" title="NYT">纽约日报</a></li>
+</ul>
+<p>新闻聚合频道：</p>
+<ul>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/tnews365" title="tnews365">竹新社</a>：超级好用的新闻聚合，最推荐。</li>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/xhqcankao" title="xhqcankao">风向旗</a></li>
+<li><a href="https://backend.twittercloud.tk/https/t.me/s/iyouport" title="iyouport">iyouport</a>：一个中文无政府主义者的频道，其中信息需要甄别。</li>
+</ul>
+<h3 id="国内网站">国内网站</h3>
+<ul>
+<li><a href="https://www.solidot.org/" title="solidot">Solidot奇客</a>：科技新闻。</li>
+<li><a href="https://weibo.com/u/6534413254" title="mani">睡前消息微博</a>：马逆新闻联播。</li>
+</ul>
+<h3 id="国外网站英文">国外网站（英文）</h3>
+<ul>
+<li><a href="https://www.newscientist.com/" title="newsci">NewScientist</a>：科技新闻，需要一定姿势水平。</li>
+</ul>
+<p>PS.如有遗漏，烦请发邮件到xuwuyibing@protonmail.com，一些非信源暂不收录。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Hello Gridea]]></title>
+        <id>https://www.57f.org/hello-gridea/</id>
+        <link href="https://www.57f.org/hello-gridea/">
+        </link>
+        <updated>2021-06-11T16:01:02.000Z</updated>
+        <summary type="html"><![CDATA[<p>👏  欢迎使用 <strong>Gridea</strong> ！<br>
+✍️  <strong>Gridea</strong> 一个静态博客写作客户端。你可以用它来记录你的生活、心情、知识、笔记、创意... ...</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>👏  欢迎使用 <strong>Gridea</strong> ！<br>
+✍️  <strong>Gridea</strong> 一个静态博客写作客户端。你可以用它来记录你的生活、心情、知识、笔记、创意... ...</p>
+<!-- more -->
+<p><a href="https://github.com/getgridea/gridea">Github</a><br>
+<a href="https://gridea.dev/">Gridea 主页</a><br>
+<a href="https://fehey.com/">示例网站</a></p>
+<h2 id="特性">特性👇</h2>
+<p>📝  你可以使用最酷的 <strong>Markdown</strong> 语法，进行快速创作</p>
+<p>🌉  你可以给文章配上精美的封面图和在文章任意位置插入图片</p>
+<p>🏷️  你可以对文章进行标签分组</p>
+<p>📋  你可以自定义菜单，甚至可以创建外部链接菜单</p>
+<p>💻  你可以在 <strong>Windows</strong>，<strong>MacOS</strong> 或 <strong>Linux</strong> 设备上使用此客户端</p>
+<p>🌎  你可以使用 <strong>𝖦𝗂𝗍𝗁𝗎𝖻 𝖯𝖺𝗀𝖾𝗌</strong> 或 <strong>Coding Pages</strong> 向世界展示，未来将支持更多平台</p>
+<p>💬  你可以进行简单的配置，接入 <a href="https://github.com/gitalk/gitalk">Gitalk</a> 或 <a href="https://github.com/SukkaW/DisqusJS">DisqusJS</a> 评论系统</p>
+<p>🇬🇧  你可以使用<strong>中文简体</strong>或<strong>英语</strong></p>
+<p>🌁  你可以任意使用应用内默认主题或任意第三方主题，强大的主题自定义能力</p>
+<p>🖥  你可以自定义源文件夹，利用 OneDrive、百度网盘、iCloud、Dropbox 等进行多设备同步</p>
+<p>🌱 当然 <strong>Gridea</strong> 还很年轻，有很多不足，但请相信，它会不停向前 🏃</p>
+<p>未来，它一定会成为你离不开的伙伴</p>
+<p>尽情发挥你的才华吧！</p>
+<p>😘 Enjoy~</p>
+]]></content>
+    </entry>
+</feed>
